@@ -414,7 +414,7 @@ function CalibrationTrials({ level, totalTrials, onComplete }) {
 
 // ─── Componente Principal: PreTestModal ──────────────────────────────
 export default function PreTestModal({ level, onStart, onCancel }) {
-  const { isConnected, device, batteryLevel, connectBLE } = useBluetoothCube();
+  const { isConnected, device, batteryLevel, connectBLE, isKeyboardMode } = useBluetoothCube();
   const [calibrationDone, setCalibrationDone] = useState(false);
   const [showCalibration, setShowCalibration] = useState(false);
 
@@ -528,18 +528,41 @@ export default function PreTestModal({ level, onStart, onCancel }) {
           )}
         </div>
 
-        {/* Estado de Conexión BLE */}
+        {/* Estado de Conexión BLE o Modo Teclado */}
         <div className="px-6 pt-5">
-          <BleStatusIndicator
-            isConnected={isConnected}
-            deviceName={device}
-            batteryLevel={batteryLevel}
-            onReconnect={connectBLE}
-          />
+          {isKeyboardMode ? (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⌨️</span>
+                <div className="text-left">
+                  <p className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                    Modo Teclado (Sin Cubo) Activo
+                  </p>
+                  <p className="text-[11px] text-amber-200/80 mt-0.5">
+                    {level === 2 && 'Usa la BARRA ESPACIADORA o tecla A para ROJO. En No-Go, ¡no presiones nada!'}
+                    {level === 3 && 'Usa tecla A para ROJO (Mano Izq) y tecla L para NARANJA (Mano Der).'}
+                    {level === 4 && 'Usa tecla A para ROJO y tecla L para NARANJA. En Azul/Verde, ¡frena!'}
+                    {level === 5 && 'Usa las teclas de colores o haz clic en los 6 botones cromáticos.'}
+                    {level === 1 && 'Prueba teclas y controles libremente sin límite de tiempo.'}
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-black bg-amber-500/30 text-amber-200 px-2 py-1 rounded-lg">
+                ACTIVO
+              </span>
+            </div>
+          ) : (
+            <BleStatusIndicator
+              isConnected={isConnected}
+              deviceName={device}
+              batteryLevel={batteryLevel}
+              onReconnect={connectBLE}
+            />
+          )}
         </div>
 
-        {/* Zona de Calibración */}
-        {showCalibration && (
+        {/* Zona de Calibración (Solo si NO es modo teclado) */}
+        {!isKeyboardMode && showCalibration && (
           <div className="px-6 pt-5">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -559,7 +582,15 @@ export default function PreTestModal({ level, onStart, onCancel }) {
 
         {/* Botones de Acción */}
         <div className="p-6 pt-5 flex flex-col gap-3">
-          {calibrationDone || !hasPractice ? (
+          {isKeyboardMode ? (
+            <button
+              onClick={onStart}
+              className="w-full py-4 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-2xl text-sm transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-amber-500/20 cursor-pointer uppercase tracking-wider hover:scale-105 active:scale-95"
+            >
+              <ShieldCheck className="w-5 h-5" />
+              <span>Iniciar Evaluación (Modo Teclado)</span>
+            </button>
+          ) : calibrationDone || !hasPractice ? (
             <button
               onClick={onStart}
               className={`w-full py-4 ${colors.btnBg} text-white font-black rounded-2xl text-sm transition-all flex items-center justify-center gap-2.5 shadow-lg ${colors.glow} cursor-pointer uppercase tracking-wider`}

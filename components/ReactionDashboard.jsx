@@ -122,7 +122,9 @@ export default function ReactionDashboard({
   recordId,
   attemptNumber,
   clinicalLabel,
-  patient
+  patient,
+  metrics = {},
+  stats = {}
 }) {
   const [chartFilter, setChartFilter] = useState('ALL');
   const [showAllTurns, setShowAllTurns] = useState(false);
@@ -397,7 +399,7 @@ export default function ReactionDashboard({
       {/* ── HEADER ── */}
       <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3 flex-wrap">
             Reporte Reaction Mirror
             {attemptNumber && (
               <span className={`text-sm px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
@@ -406,6 +408,11 @@ export default function ReactionDashboard({
                 'bg-emerald-100 text-emerald-700'
               }`}>
                 Intento {attemptNumber} • {clinicalLabel}
+              </span>
+            )}
+            {(Boolean(metrics?.isKeyboardMode) || metrics?.modo_evaluacion === 'teclado_sin_cubo' || Boolean(stats?.isKeyboardMode) || stats?.modo_evaluacion === 'teclado_sin_cubo' || statsJson?.isKeyboardMode || statsJson?.modo_evaluacion === 'teclado_sin_cubo' || (clinicalLabel && clinicalLabel.includes('Modo Teclado'))) && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                ⌨️ Modo Teclado (Sin Cubo)
               </span>
             )}
           </h1>

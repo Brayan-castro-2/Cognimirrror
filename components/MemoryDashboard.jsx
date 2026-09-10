@@ -174,7 +174,14 @@ export default function MemoryDashboard({ record, onRestart, onExit }) {
       {/* HEADER */}
       <div className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">Reporte Memory Mirror</h1>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3 flex-wrap">
+            Reporte Memory Mirror
+            {(metrics?.isKeyboardMode || metrics?.modo_evaluacion === 'teclado_sin_cubo' || record?.clinicalLabel?.includes('Modo Teclado')) && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                ⌨️ Modo Teclado (Sin Cubo)
+              </span>
+            )}
+          </h1>
           <p className="text-slate-500 font-medium mt-1 text-sm">
             Estudiante: <span className="text-purple-600 font-bold">{playerName || 'Anónimo'}</span>
             <span className="mx-2 text-slate-300">|</span>

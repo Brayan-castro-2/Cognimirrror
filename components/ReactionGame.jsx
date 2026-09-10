@@ -195,11 +195,11 @@ function buildConstrainedDeck(goCount, nogoCount, goFactory, nogoFactory, initia
 
 
 export default function ReactionGame({ onExit, activePatientId, addSession, getPatient, sessionMeta, sessionStartTime, isWarmup = false, isDemoMode = false, gameMode = 'official', etiquetaEstudio = null, idSujeto = null, onTelemetryUpdate, omissionTimeoutMs = 1200 }) {
-  const { subscribeToMoves, isConnected, openScanner } = useBluetoothCube();
+  const { subscribeToMoves, isConnected, openScanner, isKeyboardMode, setKeyboardMode } = useBluetoothCube();
   const { deactivate: deactivateJoicube } = useJoicube();
 
   const wasConnectedAtStartRef = useRef(isConnected);
-  const requireBluetooth = wasConnectedAtStartRef.current;
+  const requireBluetooth = !isKeyboardMode && wasConnectedAtStartRef.current;
 
   // --- WARMUP TIMER ---
   const [warmupTimeLeft, setWarmupTimeLeft] = useState(15);
@@ -473,13 +473,14 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
         levelNumber: levelNumber,
         date: new Date().toISOString(),
         sessionMeta,
-        clinicalLabel: isWarmup 
+        clinicalLabel: (isWarmup 
           ? 'Calentamiento (Práctica)' 
           : (gameMode === 'single_face' 
               ? 'Nivel 2: Go/No-Go Simple (1 Cara)' 
               : (gameMode === 'bilateral_pure' 
                   ? 'Nivel 3: Bilateralidad Pura (2 Caras)' 
-                  : (etiquetaEstudio ? 'Evaluación Oficial' : (sessionMeta?.clinicalLabel || 'Nivel 4: Reaction Mirror (Clínico)')))),
+                  : (etiquetaEstudio ? 'Evaluación Oficial' : (sessionMeta?.clinicalLabel || 'Nivel 4: Reaction Mirror (Clínico)')))))
+          + (isKeyboardMode ? ' [Modo Teclado - Sin Cubo]' : ''),
         etiquetaEstudio: etiquetaEstudio,
         idSujeto: idSujeto || (getPatient && activePatientId ? getPatient(activePatientId)?.idSujeto : null) || null,
         metrics: { 
@@ -508,7 +509,12 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
           totalTrials: results.length,
           goTrials: results.filter(r => r.type === 'GO').length,
           omissions: results.filter(r => r.type === 'GO' && r.timeout).length,
-          commissions: results.filter(r => r.type === 'GO' && r.errors > 0).length
+          commissions: results.filter(r => r.type === 'GO' && r.errors > 0).length,
+          // Auditoría Clínica de Modo de Evaluación
+          isKeyboardMode: Boolean(isKeyboardMode),
+          modo_evaluacion: isKeyboardMode ? 'teclado_sin_cubo' : 'cubo_bluetooth',
+          cubo_conectado: !isKeyboardMode,
+          inputMode: isKeyboardMode ? 'teclado' : 'cubo_ble'
         },
         rawTurnsData: results
       };
@@ -674,6 +680,13 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
   useEffect(() => {
     const onKey = (e) => {
       const keyUpper = e.key.toUpperCase();
+      // En Nivel 2 (single_face): la barra espaciadora activa el GO (Rojo / 'L')
+      if (gameMode === 'single_face' && (e.key === ' ' || e.key === 'Spacebar')) {
+        e.preventDefault();
+        handleMove('L');
+        return;
+      }
+
       if (e.key === 'ArrowRight' || keyUpper === 'L') handleMove('R');
       if (e.key === 'ArrowLeft' || keyUpper === 'A') handleMove('L');
       if (e.key === 'ArrowUp') handleMove('U');
@@ -681,7 +694,7 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleMove]);
+  }, [handleMove, gameMode]);
 
   // ── RENDER ──
   // --- PAUSA POR DESCONEXIÓN ---
@@ -700,20 +713,28 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
             !
           </div>
           <h2 className="text-2xl font-black mb-3 text-white tracking-tight uppercase">Conexión Perdida</h2>
-          <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-8">
+          <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-6">
             Se ha interrumpido la conexión Bluetooth con el cubo inteligente. Hemos pausado la prueba para que no pierdas tu progreso.
           </p>
           
           <button
             onClick={openScanner}
-            className="w-full py-4.5 bg-gradient-to-r from-red-600 to-pink-600 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 transition-all text-white font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-4 animate-pulse"
+            className="w-full py-4 bg-gradient-to-r from-red-600 to-pink-600 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 transition-all text-white font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-3 animate-pulse"
           >
             Reconectar Cubo
+          </button>
+
+          <button
+            onClick={() => setKeyboardMode(true)}
+            className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-4 shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>⌨️</span>
+            <span>Continuar con Modo Teclado</span>
           </button>
           
           <button
             onClick={() => onExit(null)}
-            className="w-full py-4.5 bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-slate-300 font-bold uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer"
+            className="w-full py-3.5 bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-slate-300 font-bold uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer"
           >
             Abandonar Prueba
           </button>
@@ -864,6 +885,103 @@ export default function ReactionGame({ onExit, activePatientId, addSession, getP
               Ronda {Math.min(round + 1, deck.length)} / {deck.length}
             </span>
           </div>
+
+          {/* ── MODO TECLADO (SIN CUBO): LEYENDA VISUAL EN ESQUINA Y CONTROLES EN PANTALLA ── */}
+          {isKeyboardMode && (
+            <>
+              {/* Leyenda Visual Cromática en la esquina superior izquierda */}
+              <div className="absolute top-4 left-4 z-40 bg-[#0d111d]/90 backdrop-blur-md border border-amber-500/30 rounded-2xl p-3 shadow-xl max-w-xs text-left animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-white/10">
+                  <span className="text-sm">⌨️</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 font-mono">
+                    Modo Teclado Activo
+                  </span>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 text-[11px]">
+                  {gameMode === 'single_face' ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-red-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm">
+                          ESP
+                        </span>
+                        <span className="text-white/80 font-medium">ROJO: Barra Espaciadora o A</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-orange-500 flex items-center justify-center text-black font-black text-[10px]">
+                          ✋
+                        </span>
+                        <span className="text-orange-300/80 font-medium">NARANJA: ¡No toques nada!</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-red-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm">
+                          A
+                        </span>
+                        <span className="text-white/80 font-medium">ROJO: Tecla A (Mano Izq)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-orange-500 flex items-center justify-center text-white font-black text-[10px] shadow-sm">
+                          L
+                        </span>
+                        <span className="text-white/80 font-medium">NARANJA: Tecla L (Mano Der)</span>
+                      </div>
+                      {gameMode === 'official' && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-md bg-blue-600 flex items-center justify-center text-white font-black text-[10px]">
+                            ✋
+                          </span>
+                          <span className="text-blue-300/80 font-medium">AZUL / VERDE: ¡Inhibe!</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Botones Táctiles / Clic en Pantalla (Abajo) */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4">
+                {gameMode === 'single_face' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleMove('L')}
+                    className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 active:scale-95 text-white font-black rounded-2xl border border-red-400/40 shadow-[0_0_25px_rgba(220,38,38,0.5)] flex items-center gap-3 cursor-pointer transition-all"
+                  >
+                    <span className="text-xs font-mono bg-black/30 px-2.5 py-1 rounded-lg border border-white/20">
+                      ESPACIO
+                    </span>
+                    <span className="text-sm uppercase tracking-wider">¡GIRAR CARA ROJA!</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-4 sm:gap-6 bg-black/40 backdrop-blur-md p-2.5 rounded-3xl border border-white/10 shadow-2xl">
+                    <button
+                      type="button"
+                      onClick={() => handleMove('L')}
+                      className="px-6 sm:px-8 py-3.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 active:scale-95 text-white font-black rounded-2xl border border-red-400/40 shadow-[0_0_20px_rgba(220,38,38,0.4)] flex items-center gap-2.5 cursor-pointer transition-all"
+                    >
+                      <span className="text-xs font-mono bg-black/30 px-2 py-0.5 rounded-lg border border-white/20">
+                        A
+                      </span>
+                      <span className="text-xs sm:text-sm uppercase tracking-wider">ROJO (IZQ)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleMove('R')}
+                      className="px-6 sm:px-8 py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 active:scale-95 text-white font-black rounded-2xl border border-orange-400/40 shadow-[0_0_20px_rgba(249,115,22,0.4)] flex items-center gap-2.5 cursor-pointer transition-all"
+                    >
+                      <span className="text-xs sm:text-sm uppercase tracking-wider">NARANJA (DER)</span>
+                      <span className="text-xs font-mono bg-black/30 px-2 py-0.5 rounded-lg border border-white/20">
+                        L
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
 

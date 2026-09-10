@@ -485,6 +485,8 @@ export default function StudentProfileDashboard() {
               attemptNumber={selectedSessionRecord.attemptNumber}
               clinicalLabel={selectedSessionRecord.clinicalLabel}
               patient={student}
+              metrics={selectedSessionRecord.metrics || selectedSessionRecord.stats}
+              stats={selectedSessionRecord.stats}
             />
           ) : (
             <MemoryDashboard

@@ -11,10 +11,11 @@ import PasscodeModal from './PasscodeModal';
 import { usePatientsDB } from '../hooks/usePatientsDB';
 import StudentSelector from './StudentSelector';
 import ConfirmModal from './ConfirmModal';
-import { Brain } from 'lucide-react';
+import { Brain, Keyboard } from 'lucide-react';
 
 function CountdownPhase({ onComplete }) {
   const [count, setCount] = useState(3);
+  const { isKeyboardMode } = useBluetoothCube();
 
   useEffect(() => {
     if (count === 0) {
@@ -24,6 +25,16 @@ function CountdownPhase({ onComplete }) {
     const timer = setTimeout(() => setCount(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [count, onComplete]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (isKeyboardMode && (e.key === 'Enter' || e.key === ' ')) {
+        onComplete();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isKeyboardMode, onComplete]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#07080f]/95 text-white absolute inset-0 z-50">
@@ -48,7 +59,9 @@ function CountdownPhase({ onComplete }) {
         >
           <p className="text-xs font-black text-white/50 uppercase tracking-[0.3em] mb-4">Preparación</p>
           <p className="text-xl sm:text-2xl font-bold leading-relaxed text-white/90">
-            Prepárate... Observa atentamente el cubo y memoriza la secuencia de colores.
+            {isKeyboardMode 
+              ? 'Observa atentamente la secuencia en el cubo y luego repítela usando las teclas o los 6 botones de colores.'
+              : 'Prepárate... Observa atentamente el cubo y memoriza la secuencia de colores.'}
           </p>
         </motion.div>
       </div>
@@ -58,7 +71,7 @@ function CountdownPhase({ onComplete }) {
 
 function StepMenu({ onNext, onHistory, activePatient, setActivePatientId, patients, createPatient }) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const { isConnected } = useBluetoothCube();
+  const { isConnected, isKeyboardMode, toggleKeyboardMode } = useBluetoothCube();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-10 px-6 text-center">
@@ -89,6 +102,45 @@ function StepMenu({ onNext, onHistory, activePatient, setActivePatientId, patien
           }}
         />
 
+        {/* Modo Teclado (Sin Cubo) */}
+        <div className={`p-4 rounded-2xl flex flex-col gap-2.5 text-left border transition-all ${
+          isKeyboardMode 
+            ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
+            : 'bg-white/5 border-white/10'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Keyboard className={`w-4 h-4 ${isKeyboardMode ? 'text-amber-400' : 'text-slate-400'}`} />
+              <span className={`text-xs font-bold ${isKeyboardMode ? 'text-amber-300' : 'text-slate-300'}`}>
+                Modo Teclado (Sin Cubo)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={toggleKeyboardMode}
+              className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                isKeyboardMode ? 'bg-amber-500 text-black shadow-md' : 'bg-white/10 text-white/50 hover:bg-white/20'
+              }`}
+            >
+              {isKeyboardMode ? 'ACTIVADO' : 'DESACTIVADO'}
+            </button>
+          </div>
+          {isKeyboardMode ? (
+            <div className="space-y-1.5 text-[11px] text-amber-200/90 leading-relaxed">
+              <p className="font-semibold text-white bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
+                ⌨️ Controles: Usa las teclas (U, D, A, R, F, B o 1 al 6) o haz clic en los 6 botones cromáticos en pantalla para replicar la secuencia.
+              </p>
+              <p className="text-[10px] text-amber-300/80 font-mono">
+                ⚠️ Auditoría Clínica: Esta evaluación quedará guardada indicando explícitamente que se realizó sin cubo mediante teclado.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              ¿No tienes el cubo inteligente a mano? Activa este modo para evaluar usando el teclado y los 6 botones de colores en pantalla.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-col gap-3">
           <button
             onClick={onNext}
@@ -97,12 +149,13 @@ function StepMenu({ onNext, onHistory, activePatient, setActivePatientId, patien
               relative group px-10 py-5 rounded-2xl font-bold text-xl text-white
               transition-all duration-200 ease-out shadow-[0_0_40px_rgba(168,85,247,0.4)]
               ${(activePatient && acceptedTerms)
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_60px_rgba(168,85,247,0.6)] hover:scale-105 active:scale-95 cursor-pointer' 
+                ? isKeyboardMode 
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-[0_0_60px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 text-black cursor-pointer'
+                  : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-[0_0_60px_rgba(168,85,247,0.6)] hover:scale-105 active:scale-95 cursor-pointer' 
                 : 'bg-white/10 text-white/40 cursor-not-allowed shadow-none'}
             `}
           >
-            Iniciar Test
-            
+            {isKeyboardMode ? 'Iniciar Test (Modo Teclado)' : 'Iniciar Test'}
           </button>
 
           <button
@@ -260,6 +313,7 @@ function StepHistory({ onBack, onOpenReport, patients, deletePatient, deleteSess
 export default function MemoryGameView({ onExit, subjectId, etiquetaEstudio, isWarmupUrl = false, isDemoMode = false }) {
   const [step, setStep] = useState('menu');
   const [isWarmupMode, setIsWarmupMode] = useState(false);
+  const { isKeyboardMode } = useBluetoothCube();
   
   const {
     patients,
@@ -429,13 +483,21 @@ export default function MemoryGameView({ onExit, subjectId, etiquetaEstudio, isW
               
               if (!isWarmupMode) {
                 // Guardar la sesión automáticamente con soporte de estudio y sujeto
+                const baseLabel = etiquetaEstudio ? 'Evaluación Oficial' : (sessionMeta?.clinicalLabel || 'Línea Base');
+                const finalClinicalLabel = baseLabel + (isKeyboardMode ? ' [Modo Teclado - Sin Cubo]' : '');
+
                 const saved = await addSession(activePatientId, {
                   testType: 'memory',
                   attemptNumber: sessionMeta?.attemptNumber || 1,
-                  clinicalLabel: etiquetaEstudio ? 'Evaluación Oficial' : (sessionMeta?.clinicalLabel || 'Línea Base'),
+                  clinicalLabel: finalClinicalLabel,
                   etiquetaEstudio: etiquetaEstudio,
                   idSujeto: subjectId || (activePatient?.idSujeto || null),
-                  stats: record.metrics,
+                  stats: {
+                    ...record.metrics,
+                    isKeyboardMode: !!isKeyboardMode,
+                    modo_evaluacion: isKeyboardMode ? 'teclado_sin_cubo' : 'cubo_bluetooth',
+                    cubo_conectado: !isKeyboardMode
+                  },
                   telemetry: record.telemetry,
                   date: new Date().toISOString()
                 });

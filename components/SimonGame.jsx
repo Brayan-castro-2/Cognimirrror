@@ -65,10 +65,10 @@ const playTone = (frequency, type = 'triangle', duration = 0.4) => {
 };
 
 export default function SimonGame({ onExit, playerName, sessionMeta, sessionStartTime, onTelemetryUpdate, isDemoMode = false }) {
-  const { isConnected, subscribeToMoves, connectCube } = useBluetoothCube();
+  const { isConnected, subscribeToMoves, connectCube, isKeyboardMode, setKeyboardMode } = useBluetoothCube();
 
   const wasConnectedAtStartRef = useRef(isConnected);
-  const requireBluetooth = wasConnectedAtStartRef.current;
+  const requireBluetooth = !isKeyboardMode && wasConnectedAtStartRef.current;
 
   const {
     gameState,
@@ -82,7 +82,7 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
     telemetry,
     startGame,
     handleCubeInput
-  } = useVisuospatialTest(isConnected, requireBluetooth);
+  } = useVisuospatialTest(isKeyboardMode ? true : isConnected, requireBluetooth);
 
   // Monitor de nivel para finalizar de forma asíncrona y comprimida de 15 segundos si es modo defensa (máx Nivel 3)
   useEffect(() => {
@@ -93,13 +93,16 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
           corsiSpan: 3,
           maxLevelReached: 3,
           isCompleted: true,
-          totalDurationMs: Date.now() - (sessionStartTime || Date.now())
+          totalDurationMs: Date.now() - (sessionStartTime || Date.now()),
+          isKeyboardMode: Boolean(isKeyboardMode),
+          modo_evaluacion: isKeyboardMode ? 'teclado_sin_cubo' : 'cubo_bluetooth',
+          cubo_conectado: !isKeyboardMode
         },
         telemetry: telemetry
       };
       onExit(finalRecord);
     }
-  }, [level, isDemoMode, gameState, telemetry, onExit, sessionStartTime]);
+  }, [level, isDemoMode, gameState, telemetry, onExit, sessionStartTime, isKeyboardMode]);
 
   const [demoKey, setDemoKey] = useState(0);
   const [showErrorFlash, setShowErrorFlash] = useState(false);
@@ -227,14 +230,27 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
   useEffect(() => {
     const onKey = (e) => {
       const keyUpper = e.key.toUpperCase();
+
+      if (gameState === 'idle' && isKeyboardMode && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        startGame();
+        return;
+      }
+
       let face = null;
 
-      if (e.key === 'ArrowRight' || keyUpper === 'R') face = 'R';
-      else if (e.key === 'ArrowLeft' || keyUpper === 'L') face = 'L';
-      else if (e.key === 'ArrowUp' || keyUpper === 'U') face = 'U';
-      else if (e.key === 'ArrowDown' || keyUpper === 'D') face = 'D';
-      else if (e.key === ' ' || e.key === 'Enter' || keyUpper === 'F') face = 'F';
-      else if (keyUpper === 'B') face = 'B';
+      // Blanco (U)
+      if (keyUpper === 'U' || keyUpper === 'W' || e.key === 'ArrowUp' || e.key === '1') face = 'U';
+      // Amarillo (D)
+      else if (keyUpper === 'D' || keyUpper === 'S' || e.key === 'ArrowDown' || e.key === '2') face = 'D';
+      // Rojo (L)
+      else if (keyUpper === 'A' || e.key === 'ArrowLeft' || e.key === '3') face = 'L';
+      // Naranja (R)
+      else if (keyUpper === 'R' || keyUpper === 'L' || e.key === 'ArrowRight' || e.key === '4') face = 'R';
+      // Azul (F)
+      else if (keyUpper === 'F' || e.key === ' ' || e.key === '5') face = 'F';
+      // Verde (B)
+      else if (keyUpper === 'B' || keyUpper === 'G' || e.key === '6') face = 'B';
 
       if (face) {
         if (gameState === 'waiting_for_user') {
@@ -246,7 +262,7 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleCubeInput, gameState]);
+  }, [handleCubeInput, gameState, isKeyboardMode, startGame]);
 
   // Audio durante la reproducción de la secuencia del cubo virtual
   useEffect(() => {
@@ -286,7 +302,11 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
         totalCorrectTrials,
         totalErrors,
         avgLatencyMs,
-        supra_span_resistance_percentage
+        supra_span_resistance_percentage,
+        isKeyboardMode: Boolean(isKeyboardMode),
+        modo_evaluacion: isKeyboardMode ? 'teclado_sin_cubo' : 'cubo_bluetooth',
+        cubo_conectado: !isKeyboardMode,
+        inputMode: isKeyboardMode ? 'teclado' : 'cubo_ble'
       },
       telemetry
     };
@@ -312,20 +332,28 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
             !
           </div>
           <h2 className="text-2xl font-black mb-3 text-white tracking-tight uppercase">Conexión Perdida</h2>
-          <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-8">
+          <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-6">
             Se ha interrumpido la conexión Bluetooth con el cubo inteligente. Hemos pausado la prueba para que no pierdas tu progreso.
           </p>
 
           <button
             onClick={connectCube}
-            className="w-full py-4.5 bg-gradient-to-r from-red-600 to-pink-600 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 transition-all text-white font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-4 animate-pulse"
+            className="w-full py-4 bg-gradient-to-r from-red-600 to-pink-600 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 transition-all text-white font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-3 animate-pulse"
           >
             Reconectar Cubo
           </button>
 
           <button
+            onClick={() => setKeyboardMode(true)}
+            className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer mb-4 shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>⌨️</span>
+            <span>Continuar con Modo Teclado</span>
+          </button>
+
+          <button
             onClick={() => onExit(null)}
-            className="w-full py-4.5 bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-slate-300 font-bold uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer"
+            className="w-full py-3.5 bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-slate-300 font-bold uppercase text-[10px] tracking-widest rounded-2xl cursor-pointer"
           >
             Abandonar Prueba
           </button>
@@ -482,28 +510,100 @@ export default function SimonGame({ onExit, playerName, sessionMeta, sessionStar
               />
             </div>
 
+            {/* LEYENDA CROMÁTICA EN LA ESQUINA (SOLO MODO TECLADO) */}
+            {isKeyboardMode && (
+              <div className="absolute top-16 left-4 z-30 bg-[#0d111d]/90 backdrop-blur-md border border-amber-500/30 rounded-2xl p-3 shadow-xl max-w-[210px] text-left animate-in fade-in">
+                <div className="flex items-center gap-1.5 mb-2 pb-1 border-b border-white/10">
+                  <span className="text-xs">⌨️</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 font-mono">
+                    Atajos de Color
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] font-mono">
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-white text-black font-black text-[9px] flex items-center justify-center">U</span><span className="text-white/80">Blanco (1)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-yellow-400 text-black font-black text-[9px] flex items-center justify-center">D</span><span className="text-white/80">Amarillo (2)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-red-600 text-white font-black text-[9px] flex items-center justify-center">A</span><span className="text-white/80">Rojo (3)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-orange-500 text-white font-black text-[9px] flex items-center justify-center">R</span><span className="text-white/80">Naranja (4)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-blue-600 text-white font-black text-[9px] flex items-center justify-center">F</span><span className="text-white/80">Azul (5)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-emerald-600 text-white font-black text-[9px] flex items-center justify-center">B</span><span className="text-white/80">Verde (6)</span></div>
+                </div>
+              </div>
+            )}
+
+            {/* PANEL DE 6 COLORES INTERACTIVOS MODO TECLADO */}
+            {isKeyboardMode && (gameState === 'waiting_for_user' || gameState === 'showing_sequence') && (
+              <div className="absolute bottom-6 sm:bottom-8 text-center w-full z-30 px-4 flex flex-col items-center gap-2">
+                <div className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 bg-black/70 backdrop-blur-xl p-3 sm:p-4 rounded-3xl border border-white/15 shadow-2xl transition-all ${
+                  gameState === 'showing_sequence' ? 'opacity-40 pointer-events-none' : 'opacity-100'
+                }`}>
+                  {[
+                    { face: 'U', label: 'BLANCO', keyLabel: 'U', style: 'bg-white text-black border-white hover:bg-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.3)]' },
+                    { face: 'D', label: 'AMARILLO', keyLabel: 'D', style: 'bg-yellow-400 text-black border-yellow-500 hover:bg-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.3)]' },
+                    { face: 'L', label: 'ROJO', keyLabel: 'A', style: 'bg-red-600 text-white border-red-500 hover:bg-red-500 shadow-[0_0_15px_rgba(220,38,38,0.4)]' },
+                    { face: 'R', label: 'NARANJA', keyLabel: 'R', style: 'bg-orange-500 text-white border-orange-400 hover:bg-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)]' },
+                    { face: 'F', label: 'AZUL', keyLabel: 'F', style: 'bg-blue-600 text-white border-blue-400 hover:bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)]' },
+                    { face: 'B', label: 'VERDE', keyLabel: 'B', style: 'bg-emerald-600 text-white border-emerald-400 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' }
+                  ].map((btn) => (
+                    <button
+                      key={btn.face}
+                      type="button"
+                      disabled={gameState !== 'waiting_for_user'}
+                      onClick={() => triggerUserInputFeedback(btn.face)}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl border font-bold text-xs sm:text-sm transition-all duration-150 active:scale-90 hover:scale-105 shadow-lg cursor-pointer ${btn.style}`}
+                    >
+                      <span className="w-5 h-5 rounded-lg flex items-center justify-center font-mono text-[10px] font-black bg-black/30 border border-white/20">
+                        {btn.keyLabel}
+                      </span>
+                      <span className="uppercase tracking-wider">{btn.label}</span>
+                    </button>
+                  ))}
+                </div>
+                {gameState === 'waiting_for_user' && (
+                  <span className="text-[11px] text-emerald-400 font-mono font-bold tracking-wider animate-pulse bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-500/20">
+                    Haz clic en el color o presiona su tecla correspondiente
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* CONTROLES / BOTONES INFERIORES */}
             <div className="absolute bottom-6 sm:bottom-8 text-center w-full z-10 px-4 flex flex-col items-center gap-2">
               {gameState === 'idle' && (
                 <>
-                  <button
-                    onClick={isConnected ? startGame : connectCube}
-                    className={`px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-xs sm:text-sm tracking-[0.25em] transition-all max-w-[280px] sm:max-w-none cursor-pointer
-                        ${isConnected
-                        ? 'bg-gradient-to-r from-[#a855f7] to-[#c084fc] hover:scale-105 shadow-[0_0_30px_rgba(168,85,247,0.4)] text-white'
-                        : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.4)] text-white animate-pulse'
-                      }`}
-                  >
-                    {isConnected ? 'INICIAR PRUEBA' : 'CONECTAR CUBO SMART BLE'}
-                  </button>
-                  {isConnected ? (
-                    <span className="text-[11px] text-purple-300/70 font-mono font-bold tracking-wider animate-pulse bg-purple-950/40 px-3 py-1 rounded-full border border-purple-500/20">
-                      Gira 2 veces la cara ROJA (L) del cubo para iniciar
-                    </span>
+                  {isKeyboardMode ? (
+                    <>
+                      <button
+                        onClick={startGame}
+                        className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 active:scale-95 text-black font-black uppercase text-xs sm:text-sm tracking-[0.25em] rounded-2xl shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all cursor-pointer"
+                      >
+                        INICIAR PRUEBA (MODO TECLADO)
+                      </button>
+                      <span className="text-[11px] text-amber-300/80 font-mono font-bold tracking-wider bg-amber-950/40 px-3 py-1 rounded-full border border-amber-500/20">
+                        Haz clic en el botón o presiona ENTER para iniciar sin cubo
+                      </span>
+                    </>
                   ) : (
-                    <span className="text-[11px] text-cyan-300/70 font-mono font-bold tracking-wider bg-cyan-950/40 px-3 py-1 rounded-full border border-cyan-500/20">
-                      Haz clic en el botón para vincular el cubo GAN por Bluetooth
-                    </span>
+                    <>
+                      <button
+                        onClick={isConnected ? startGame : connectCube}
+                        className={`px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-xs sm:text-sm tracking-[0.25em] transition-all max-w-[280px] sm:max-w-none cursor-pointer
+                            ${isConnected
+                            ? 'bg-gradient-to-r from-[#a855f7] to-[#c084fc] hover:scale-105 shadow-[0_0_30px_rgba(168,85,247,0.4)] text-white'
+                            : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.4)] text-white animate-pulse'
+                          }`}
+                      >
+                        {isConnected ? 'INICIAR PRUEBA' : 'CONECTAR CUBO SMART BLE'}
+                      </button>
+                      {isConnected ? (
+                        <span className="text-[11px] text-purple-300/70 font-mono font-bold tracking-wider animate-pulse bg-purple-950/40 px-3 py-1 rounded-full border border-purple-500/20">
+                          Gira 2 veces la cara ROJA (L) del cubo para iniciar
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-cyan-300/70 font-mono font-bold tracking-wider bg-cyan-950/40 px-3 py-1 rounded-full border border-cyan-500/20">
+                          Haz clic en el botón para vincular el cubo GAN por Bluetooth
+                        </span>
+                      )}
+                    </>
                   )}
                 </>
               )}

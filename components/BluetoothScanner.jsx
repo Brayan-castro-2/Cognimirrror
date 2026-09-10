@@ -163,9 +163,49 @@ export default function BluetoothScanner({ isOpen, onClose, onConnected }) {
             </button>
             
             {status !== 'connecting' && status !== 'success' && (
-              <button className="ble-btn-secondary" onClick={onClose}>
-                Cancelar
-              </button>
+              <>
+                <button className="ble-btn-secondary" onClick={onClose}>
+                  Cancelar
+                </button>
+
+                <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '8px' }}>
+                    ¿No tienes el cubo físico o se quedó sin batería?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        localStorage.setItem('COGNIMIRROR_KEYBOARD_MODE', 'true');
+                        window.dispatchEvent(new Event('storage'));
+                      } catch(_) {}
+                      if (typeof window !== 'undefined') {
+                        // Disparar recarga suave o actualizar si tiene el contexto
+                      }
+                      onClose();
+                      window.location.reload();
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: '#fffbeb',
+                      color: '#b45309',
+                      border: '1px solid #fde68a',
+                      fontWeight: '700',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>⌨️</span>
+                    <span>Activar Modo Teclado (Sin Cubo)</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
           

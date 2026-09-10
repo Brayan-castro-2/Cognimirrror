@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-// Caras activas: Blanco (U), Amarillo (D), Naranja (R), Rojo (L), Azul (F). Cara Verde / Atrás (B) excluida.
-const VALID_FACES = ['U', 'D', 'R', 'L', 'F'];
+// Caras activas de input: Blanco (U), Amarillo (D), Naranja (R), Rojo (L), Azul (F), Verde (B)
+const VALID_FACES = ['U', 'D', 'R', 'L', 'F', 'B'];
+const GENERATE_FACES = ['U', 'D', 'R', 'L', 'F'];
 
 /**
  * Hook clínico para el Test de Bloques de Corsi 3D (Memory Mirror - Nivel 5)
@@ -49,7 +50,7 @@ export function useVisuospatialTest(isConnected = true, requireBluetooth = true)
     for (let i = 0; i < span; i++) {
       let nextFace;
       do {
-        nextFace = VALID_FACES[Math.floor(Math.random() * VALID_FACES.length)];
+        nextFace = GENERATE_FACES[Math.floor(Math.random() * GENERATE_FACES.length)];
       } while (
         (newSeq.length > 0 && nextFace === newSeq[newSeq.length - 1]) ||
         (newSeq.length > 1 && nextFace === newSeq[newSeq.length - 2])

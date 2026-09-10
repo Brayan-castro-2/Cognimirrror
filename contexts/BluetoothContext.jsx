@@ -20,6 +20,39 @@ export function BluetoothProvider({ children }) {
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationResult, setCalibrationResult] = useState(null); // { ble, render, total }
   
+  // --- MODO TECLADO (SIN CUBO) ---
+  const [isKeyboardMode, setIsKeyboardMode] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedKb = localStorage.getItem('COGNIMIRROR_KEYBOARD_MODE') === 'true';
+      if (savedKb) setIsKeyboardMode(true);
+    } catch (_) {}
+  }, []);
+
+  const toggleKeyboardMode = useCallback(() => {
+    setIsKeyboardMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('COGNIMIRROR_KEYBOARD_MODE', String(next));
+      } catch (_) {}
+      return next;
+    });
+  }, []);
+
+  const setKeyboardMode = useCallback((val) => {
+    setIsKeyboardMode(Boolean(val));
+    try {
+      localStorage.setItem('COGNIMIRROR_KEYBOARD_MODE', String(Boolean(val)));
+    } catch (_) {}
+  }, []);
+
+  // Simulación de movimiento manual (para botones en pantalla y teclado)
+  const simulateMove = useCallback((notation) => {
+    if (!notation) return;
+    broadcastMove(notation);
+  }, []);
+  
   // --- EXPERT GYRO STATES ---
   const [gyroOffset, setGyroOffset] = useState({ x: 0, y: 0, z: 0 });
   const [gyroConfig, setGyroConfig] = useState({
@@ -338,6 +371,15 @@ export function BluetoothProvider({ children }) {
     gyroOffset,
     gyroConfig,
     setGyroConfig,
+    // Modo Teclado (Sin Cubo)
+    isKeyboardMode,
+    toggleKeyboardMode,
+    setKeyboardMode,
+    simulateMove,
+    // Compatibilidad
+    isSosMode: isKeyboardMode,
+    toggleSosMode: toggleKeyboardMode,
+    setSosMode: setKeyboardMode,
   };
 
   return (
